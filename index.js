@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 import dns from "node:dns";
 import { MongoClient, ObjectId } from "mongodb";
+import { toNodeHandler } from "better-auth/node";
+import { createAuth } from "./auth.js";
 
 dns.setServers(["8.8.8.8"]);
 
@@ -23,7 +25,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
 
 app.get("/", (request, response) => {
     response.send("PlayGrid server is running");
@@ -56,6 +57,20 @@ async function startServer() {
 
         app.locals.database = database;
         app.locals.mongoClient = mongoClient;
+
+        // Create Better Auth instance
+        const auth = createAuth(database, mongoClient);
+
+        app.locals.auth = auth;
+
+        // Express 5 Better Auth handler
+        app.all(
+            "/api/auth/*splat",
+            toNodeHandler(auth)
+        );
+
+        // JSON middleware must come after Better Auth
+        app.use(express.json());
 
         const facilitiesCollection =
             database.collection("facilities");
